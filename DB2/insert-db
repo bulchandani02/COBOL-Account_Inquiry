@@ -1,0 +1,20 @@
+
+
+insert into account (accountid, name, address, city, country, 
+zipcode) values ('1002010001', 'Jyotsna Bulchandani', 
+'Paris Rossy Charles de Gaulle', 'Rossy', 'France', 
+'95711'); 
+
+insert into account (accountid, name, address, city, country, 
+zipcode)  values ('1002010002', 'Mounika Peramsetty', 
+'Avenue René Cassin', 'Mérignac', 'France', '33700'); 
+
+insert into account (accountid, name, address, city, country, 
+zipcode) values ('1002010003', 'RojaswiniBandi', 
+'Via Arturo Ferrarin, 2', 'Fiumicino', 'Italie', '00054'); 
+
+insert into account (accountid, name, address, city, country, 
+zipcode) values ('1002010004', 'Rahul Shrivastava', 
+'Alameda das Comunidades Portuguesas, 1700-111', 
+'Lisbonne', 'Portugal', '1700'); 
+

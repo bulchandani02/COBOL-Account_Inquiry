@@ -1,0 +1,422 @@
+**************************************************************** 
+* PROGRAM NAME                 : ACCINQRY                      * 
+* IMPORTANT FILE               : DB2 TABLE ACCOUNT             * 
+* PROGRAMMER                   : MMSI-TCS                      * 
+* DATE OF WRITEN               : JULY. 2024                    * 
+* TECHNOLOGY                   : CICS + COBOL + DB2            * 
+**************************************************************** 
+*                   PROBLEM  DEFINITION                        * 
+*                                                              * 
+* SEARCH ACCOUNT TABLE ACCORDING TO THE ACCOUNT ID             * 
+**************************************************************** 
+* INPUT PARAMETERS:                                            * 
+*                                                              * 
+* ACCOUNT ID                                                   * 
+**************************************************************** 
+* OUTPUT PARAMETERS:                                           * 
+*                                                              * 
+* ACCOUNT DETAILS FROM ACCOUNT TABLE                           * 
+**************************************************************** 
+                                                                  
+**************************************************************** 
+*                  IDENTIFICATION DIVISION.                    * 
+**************************************************************** 
+                                           
+                       
+ IDENTIFICATION DIVISION. 
+ PROGRAM-ID. ACCINQRY. 
+                                                                  
+**************************************************************** 
+*                       DATA DIVISION.                         * 
+**************************************************************** 
+                                                                  
+ DATA DIVISION. 
+                                                                  
+*------------------------* 
+ WORKING-STORAGE SECTION. 
+*------------------------*                                              
+                                                                        
+***************************************************************         
+*                      MAPS CICS COPY                         *         
+***************************************************************         
+                                                                        
+ COPY ACCINQ.                                                          
+ COPY DFHAID.                                                           
+ COPY DFHBMSCA.                                                         
+                                                                        
+*****************************************************************       
+*                       SQL DECLARATION                         *       
+*****************************************************************       
+                                                                        
+     EXEC SQL                                                           
+         INCLUDE ACCOUNT                                                 
+     END-EXEC.                                                          
+                                                                        
+     EXEC SQL                                                           
+         INCLUDE SQLCA                                                  
+     END-EXEC.                                                          
+                                                                        
+*****************************************************************       
+*                          SQL CURSORS                          *       
+*****************************************************************       
+                                                                        
+*----*                                                                  
+*CSR1*                                                                  
+*----*                                                                  
+                                                                        
+     EXEC SQL                                                           
+         DECLARE CSR1 CURSOR FOR                                        
+         SELECT ACCOUNTID, NAME, ADDRESS, CITY,                  
+                COUNTRY, ZIPCODE     
+         FROM ACCOUNT                                                    
+         WHERE ACCOUNTID > :ANUMI       
+         FOR FETCH ONLY                                              
+     END-EXEC                                                        
+                                                                     
+              
+****************************************************************    
+*                   TABLE CICS WS DECLARATION.                 *    
+****************************************************************    
+                                                              
+ 01  WS-FLAG-DATE                    PIC X VALUE 'Y'. 
+                                                              
+ 01  WS-COMMAREA 
+     02 WS-TRANS                     PIC X(4). 
+     02 WS-USER-ID                   PIC X(8). 
+     02 WS-TERMINAL                  PIC X(8). 
+                                                              
+ 01  WS-TABLE. 
+     02 WS-ACCOUNTID                 PIC X(10). 
+     02 WS-NAME                      PIC X(30). 
+     02 WS-ADDRESS                   PIC X(30). 
+     02 WS-CITY                      PIC X(30).  
+     02 WS-COUNTRY                   PIC X(30). 
+     02 WS-ZIPCODE                   PIC X(15). 
+                                                              
+ 01  WS-CURRENT-DATE. 
+     02 WS-DATE. 
+        03 WS-YEAR                      PIC 9(4). 
+        03 WS-MONTH                     PIC 9(2). 
+        03 WS-DAY                       PIC 9(2). 
+     02 WS-TIME. 
+        03 WS-HOUR                      PIC 9(2). 
+        03 WS-MINUTE                    PIC 9(2). 
+        03 WS-SECOND                    PIC 9(2). 
+                                                              
+ 01  WS-EDIT-DATE                       PIC X(10). 
+                                                              
+ 01  WS-EDIT-DATE-R REDEFINES WS-EDIT-DATE. 
+     02 YEAR                            PIC 9(4). 
+     02 DASH1                           PIC X. 
+     02 MONTH                           PIC 9(2). 
+     02 DASH2                           PIC X. 
+     02 DAYS                            PIC 9(2). 
+                                                              
+ 01  WS-EDIT-DATE2                      PIC X(10). 
+                                                                 
+ 01  WS-EDIT-DATE2-R REDEFINES WS-EDIT-DATE2. 
+     02 2-DAYS                          PIC 9(2). 
+     02 2-DASH1                         PIC X. 
+     02 2-MONTH                         PIC 9(2). 
+     02 2-DASH2                         PIC X. 
+     02 2-YEAR                          PIC 9(4). 
+                                                                 
+ 01  WS-EDIT-HOUR                       PIC X(8). 
+                                                                 
+ 01  WS-EDIT-HOUR-R REDEFINES WS-EDIT-HOUR. 
+     02 H-HOUR                          PIC 9(2). 
+     02 H-DASH1                           PIC X. 
+     02 H-MIN                           PIC 9(2). 
+     02 H-DASH2                           PIC X. 
+     02 H-SEC                           PIC 9(2). 
+                                                                 
+*****************************************************************
+*                           COUNTERS                            *
+*****************************************************************
+                                                                 
+ 01  COUNT1                             PIC 9(4) VALUE ZEROS. 
+ 01  COUNT2                             PIC 9(2). 
+ 01  COUNT3                             PIC 9(2). 
+                                                                 
+*----------------* 
+ LINKAGE SECTION. 
+*----------------* 
+                                                                 
+                              
+*****************************************************************
+*                      PROCEDURE DIVISION                       *
+***************************************************************** 
+                                                                  
+ PROCEDURE DIVISION. 
+                                                                  
+***************************************************************** 
+* MAIN-PARA.                                                    * 
+*                                                               * 
+* THIS PROGRAM WORKS WITH A PSEUDO-CONVERSATION METHOD.         * 
+* THE MAIN PARAGRAPH SET THE PROCEDURE FLOW WHICH CONTROLS THE  * 
+* ACCINQ MAP.                                                   * 
+***************************************************************** 
+                                                                  
+ MAIN-PARA. 
+                                                                  
+     IF EIBCALEN = 0 
+         MOVE 'INSERT THE DATA TO DO A RESEARCH' TO MSG1O 
+         PERFORM 0100-GET-DFHCOMMAREA 
+         PERFORM 0200-GET-TIME  
+         PERFORM 0300-SEND-MAP 
+         PERFORM 0400-RETURN-CICS 
+     ELSE 
+         MOVE SPACE TO MSG1O 
+         MOVE SPACE TO MSG2O 
+         PERFORM 0410-MOVE-SPACE 
+         PERFORM 0500-RECEIVE-MAP 
+         PERFORM 0100-GET-DFHCOMMAREA 
+         PERFORM 0600-PROCESS-RESEARCH 
+         PERFORM 0200-GET-TIME 
+         PERFORM 0300-SEND-MAP 
+         PERFORM 0400-RETURN-CICS 
+     END-IF. 
+                                                                  
+*************************************************************** 
+* 0100-GET-DFHCOMMAREA                                        *      
+*                                                             *      
+* HARDCODING THESE VALUES TO TCS                              *      
+***************************************************************      
+                                                                     
+ 0100-GET-DFHCOMMAREA.                                               
+                                                                     
+     MOVE 'MMSI    ' TO WS-USER-ID                                      
+     MOVE 'TCS     ' TO WS-TERMINAL.                                   
+                                                                     
+***************************************************************      
+* 0200-GET-TIME.                                              *      
+*                                                             *      
+* FOR GET THE TIME WE CAN UTILISE THE CICS METHOD OR THE COBOL*      
+* METHOD IF THE FUNCTION CURRENT-TIME. BUT HERE WE CHOSE THE  *      
+* THE CICS METHOD.                                            *      
+***************************************************************      
+                                                                     
+ 0200-GET-TIME.                                                      
+                                                                     
+     MOVE FUNCTION CURRENT-DATE(1:14) TO WS-CURRENT-DATE.            
+     MOVE WS-YEAR TO 2-YEAR                                          
+     MOVE WS-MONTH TO 2-MONTH                                        
+     MOVE WS-DAY TO 2-DAYS                                           
+     MOVE '/' TO 2-DASH1                                             
+     MOVE '/' TO 2-DASH2                                             
+                                                                     
+     MOVE WS-YEAR TO YEAR                                            
+     MOVE WS-MONTH TO MONTH                                          
+     MOVE WS-DAY TO DAYS                                             
+     MOVE '-' TO DASH1                                               
+     MOVE '-' TO DASH2                                               
+                                                                     
+     MOVE WS-HOUR TO H-HOUR                                          
+     MOVE WS-MINUTE TO H-MIN                                         
+     MOVE WS-SECOND TO H-SEC                                         
+     MOVE ':' TO H-DASH1 
+     MOVE ':' TO H-DASH2. 
+
+*************************************************************** 
+* 0210-GIVING-TIME.                                           * 
+*                                                             * 
+* AFTER GETTING THE TIME ITS NECESSARY TO TRANSFER THIS INFO  * 
+* TO THE LOGIN MAP ITSELF                                     * 
+*************************************************************** 
+                                                                  
+ 0210-GIVING-TIME. 
+                                                                  
+     MOVE WS-EDIT-HOUR TO LHOURO 
+     MOVE WS-EDIT-DATE2 TO LDATEO. 
+                                                                  
+*************************************************************** 
+* 0300-SEND-MAP.                                              * 
+*                                                             * 
+* SEND MAP PROCEDURE IS IMPORTANTE TO CHANGE INFORMATIONS WITH* 
+* THE USER AND IN THE PSEUDO CONVERSATION METHOD.             * 
+*************************************************************** 
+                                                                  
+ 0300-SEND-MAP. 
+                                                                  
+     MOVE WS-USERID TO USERIDO 
+     MOVE WS-TERINAL TO TERMO 
+                                                                  
+     EXEC CICS 
+         SEND MAP('SRCHPA')  MAPSET('ACCINQ') ERASE 
+     END-EXEC. 
+                                                                  
+*************************************************************** 
+* 0400-RETURN-CICS.                                           * 
+*                                                             * 
+* RETURN LETS THE PROGRAM FREE TO RECEIVE OTHER INFORMATIONS  * 
+* FROM ANOTHER USERS.                                         * 
+* THE COMMUNICATION-AREA IS USED TO SEND INFORMATION BETWEEN  * 
+* MAPS.                                                       * 
+*************************************************************** 
+                                                                  
+ 0400-RETURN-CICS. 
+                                                                  
+     MOVE WS-USERID TO USER-ID 
+                                                                  
+     EXEC CICS 
+         RETURN TRANSID ('SCHA') 
+         COMMAREA(WS-COMMAREA) 
+     END-EXEC. 
+                                                                  
+*************************************************************** 
+* 0410-MOVE-SPACE                                             * 
+*                                                             * 
+* IT MOVE SPACE TO THE MAP'S VARIABLES. IT IS IMPORTANTE TO   * 
+* VERIFY IF ANY INFORMATION WAS INSERT IN IT.                 * 
+*************************************************************** 
+                                                                  
+ 0410-MOVE-SPACE. 
+                                                                  
+     MOVE SPACE TO ANUMI 
+                                                                  
+*************************************************************** 
+* 0500-RECEIVE-MAP.                                           * 
+*                                                             * 
+* IT RECEIVES THE USER INFORMATION TO BE PROCESSED            * 
+*************************************************************** 
+                                                                  
+ 0500-RECEIVE-MAP. 
+                                                                  
+     EXEC CICS 
+         RECEIVE MAP('SRCHPA')  MAPSET('ACCINQ') 
+     END-EXEC. 
+                                                                
+                                                                 
+*************************************************************** 
+* 0600-PROCESS-RESEARCH                                       * 
+*                                                             * 
+* THE PROGRAM WILL ANALYZE WHICH INFORMATION THE USER PROVIDES* 
+* AND WILL UTILISE THE CURSOR                                 * 
+*************************************************************** 
+                                                                 
+ 0600-PROCESS-RESEARCH. 
+                                                                 
+     PERFORM 0610-GET-INFORMATION 
+     PERFORM 0620-SELECT-DB2INFO. 
+                                                                 
+*****************************************************************
+* 0610-GET-INFORMATION.                                         *
+*                                                               *
+* IT GETS THE INFORMATION FROM THE USER FROM CICS               *
+*****************************************************************
+                                                                 
+ 0610-GET-INFORMATION. 
+                                                                 
+     MOVE ZEROS TO COUNT1 
+                                                                 
+     IF ANUMI NOT = SPACE 
+        ADD 1 TO COUNT1 
+     END-IF 
+                                                                 
+                                                                  
+***************************************************************** 
+* 0620-SELECT-DB2INFO.                                          * 
+*                                                               * 
+* IT GETS THE DB2 DATA ACCORDING THE INFO INSERT BY USER        * 
+* 1 = ACCOUNTNUM                                                 * 
+***************************************************************** 
+                                                                  
+ 0620-SELECT-DB2INFO. 
+                                                                  
+     EVALUATE COUNT1 
+                                                                  
+        WHEN 1 
+            PERFORM 0621-SQL-ANUM                           
+                                                                     
+        WHEN 0                                                       
+            MOVE 'NO DATA INSERT, TRY AGAIN' TO MSG1O                
+                                                                     
+     END-EVALUATE.                                                   
+                                                                     
+*****************************************************************    
+* 0621-SQL-ANUM                                                 *    
+*                                                               *    
+* IT TAKES THE ACCOUNT INFROMATION FROM ACCOUNTNUMBER             *    
+*****************************************************************    
+                                                                     
+ 0621-SQL-ANUM. 
+                                                                  
+***************************************************************** 
+* IT OPENS THE CURSOR SQL CSR1                                  * 
+***************************************************************** 
+                                                                  
+     EXEC SQL 
+         OPEN CSR1 
+     END-EXEC 
+                                                                  
+***************************************************************** 
+                                                                  
+     PERFORM VARYING COUNT2 FROM 1 BY 1 UNTIL COUNT2 > 10 OR 
+                      SQLCODE NOT = 0 OR WS-FLAG-DATE = 'N' 
+                                                                  
+        EXEC SQL 
+            FETCH CSR1 
+            INTO :WS-ACCOUNTID, :WS-NAME, :WS-ADDRESS, :WS-CITY, 
+                 :WS-COUNTRY, :WS-ZIPCODE
+        END-EXEC 
+                                                                  
+        EVALUATE SQLCODE 
+          WHEN 0 
+             PERFORM 0630-MOVE-INFO 
+          WHEN 100 
+             CONTINUE 
+          WHEN OTHER 
+             PERFORM 0700-SQL-ERROR 
+             CONTINUE 
+        END-EVALUATE 
+                                                                  
+     END-PERFORM 
+                                                                  
+     MOVE 'Y' TO WS-FLAG-DATE 
+                                                                  
+***************************************************************** 
+* IT CLOSE THE DB2 CURSOR CSR1                                  * 
+***************************************************************** 
+                                                                  
+     EXEC SQL 
+         CLOSE CSR1 
+     END-EXEC. 
+                                                                  
+                                                                                                                 
+***************************************************************** 
+* 0630-MOVE-INFO                                                * 
+*                                                               * 
+* IT MOVE THE DATA FROM THE RECEIVED DB2 VARIABLES TO THE CICS  * 
+* MAP VARIABLES                                                 * 
+***************************************************************** 
+                                                                  
+ 0630-MOVE-INFO. 
+                                                                  
+     PERFORM VARYING COUNT3 FROM 1 BY 1 UNTIL COUNT3 > 10 
+                                                                  
+        EVALUATE COUNT3 
+           WHEN 1 
+                                                                  
+               MOVE WS-ACCOUNTID TO ANUM 
+               MOVE WS-NAME TO NAME 
+               MOVE WS-ADDRESS TO ADDR 
+               MOVE WS-CITY TO CITY 
+               MOVE WS-COUNTRY TO CNTR 
+               MOVE WS-ZIPCODE TO ZIPC 
+                                                                                         
+                                                                     
+****************************************************************     
+* 0700-SQL-ERROR.                                              *     
+*                                                              *     
+* IT SENDS THE SQLCODE AND SQLSTATE TO THE USER, IF IT OCCURS  *     
+****************************************************************     
+                                                                     
+ 0700-SQL-ERROR.                                                     
+                                                                     
+     MOVE 'DB2 ERROR, CALL THE IT DEPARTMENT' TO MSG1O               
+     MOVE 'INFROM THE ERROR: ' TO MSG2O                              
+     MOVE SQLCODE TO MSG2O(20:10)                                    
+     MOVE 'AND' TO MSG2O(31:3)                                       
+     MOVE SQLSTATE TO MSG2O (35:10).                                 
+                                                                     
+****************************************************************     
