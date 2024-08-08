@@ -1,0 +1,207 @@
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. CGBMSRG.
+       ENVIRONMENT DIVISION.
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+	        COPY DFHAID.
+	        COPY CBSMAP.
+	       01 WS-COMMAREA PIC X(100).
+
+        01 WS-ACCOUNTID         PIC X(10).
+        01 WS-NAME              PIC X(100).
+        01 WS-ADDRESS           PIC X(250).
+        01 WS-CITY              PIC X(30).
+        01 WS-COUNTRY           PIC X(30).
+        01 WS-ZIPCODE           PIC X(15).
+        01 WS-PRINT PIC X(21) VALUE 'IS ALREADY REGISTERED'.
+        01 WS-NAME1 PIC X(50).
+        01 WS-PRINT1 PIC X(23) VALUE 'REGISTERED SUCCESSFULL'.
+        01 WS-ACCOUNT-STATUS  PIC X(10).
+        01 WS-MESSAGE PIC X(100).
+        01 WS-MESSAGE1 PIC X(100).
+		      77 WS-ABS-DATE    PIC S9(10) COMP-3.
+        01 WS-DATE.
+           05 WS-MONTH   PIC 99.
+           05 FILLER     PIC X(01).
+           05 WS-DAY     PIC 99.
+           05 FILLER     PIC X(01).
+           05 WS-YEAR    PIC 99.
+        01 WS-TIME.
+           05 WS-HOUR    PIC 99.
+           05 FILLER     PIC X(01).
+           05 WS-MIN     PIC 99.
+           05 FILLER     PIC X(01).
+           05 WS-SEC     PIC 99.
+           EXEC SQL
+           INCLUDE CBSACCTI
+           END-EXEC.
+           EXEC SQL
+           INCLUDE SQLCA
+           END-EXEC.
+       LINKAGE SECTION.
+       01 DFHCOMMAREA PIC X(100).
+	      PROCEDURE DIVISION.
+	      MAIN-PARA.
+	           PERFORM EIB-PARA THRU EIB-EXIT.
+			   *     MOVE LOW-VALUES TO DCLCBS-ACCT-INFO.
+			         STOP RUN.
+	      EIB-PARA.
+	          IF EIBCALEN = 0
+		            PERFORM INIT-PARA THRU INIT-EXIT
+           ELSE
+             MOVE DFHCOMMAREA TO WS-COMMAREA
+             EVALUATE WS-COMMAREA
+             WHEN 'ACC1'
+                PERFORM KEY-VALID THRU KEY-VALID-EXIT
+             WHEN OTHER
+                MOVE LOW-VALUES TO MAPPGMO
+                MOVE 'EXIT' TO MSGO
+             END-EVALUATE
+           END-IF.
+       EIB-EXIT.
+           EXIT.
+       INIT-PARA.
+           MOVE LOW-VALUES TO MAPPGMO
+           PERFORM DATE-TIME THRU DATE-TIME-EXIT
+           MOVE WS-DATE TO CDATEO
+           MOVE WS-TIME TO CTIMEO
+           PERFORM SEND-MAP THRU SEND-MAP-EXIT
+           MOVE 'ACC1' TO WS-COMMAREA
+           PERFORM RETURN-CICS THRU RETURN-CICS-EXIT.
+       INIT-EXIT.
+           EXIT.
+       DATE-TIME.
+             EXEC CICS ASKTIME ABSTIME(WS-ABS-DATE)
+             END-EXEC.
+             EXEC CICS FORMATTIME ABSTIME(WS-ABS-DATE)
+             DDMMYY(WS-DATE)
+             DATESEP('-')
+             TIME(WS-TIME)
+             TIMESEP(':')
+             END-EXEC.
+       DATE-TIME-EXIT.
+             EXIT.
+       SEND-MAP.
+             EXEC CICS
+             SEND MAP('MAPPGM') MAPSET('CBSMAP')
+             FROM(MAPPGMO)
+             ERASE
+      *      FREEKB
+      *      RESP(WS-CICS-RESP)
+             END-EXEC.
+      *      PERFORM CICS-RESP THRU CICS-RESP-EXIT.
+       SEND-MAP-EXIT.
+             EXIT.
+       RETURN-CICS.
+             EXEC CICS
+             RETURN TRANSID('ZC66')
+             COMMAREA(WS-COMMAREA)
+             END-EXEC.
+       RETURN-CICS-EXIT.
+             EXIT.
+       KEY-VALID.
+             EVALUATE EIBAID
+             WHEN DFHENTER
+               MOVE LOW-VALUES TO MAPPGMO
+               PERFORM RECEIVE-PARA THRU RECEIVE-PARA-EXIT
+               PERFORM VALIDATION-PARA THRU VALIDATION-EXIT
+               PERFORM PROCESS-PARA THRU PROCESS-PARA-EXIT
+               PERFORM DATE-TIME THRU DATE-TIME-EXIT
+               MOVE WS-DATE TO CDATEO
+               MOVE WS-TIME TO CTIMEO
+               PERFORM SEND-MAP THRU SEND-MAP-EXIT
+               PERFORM RETURN-CICS THRU RETURN-CICS-EXIT
+             WHEN DFHPF3
+               EXEC CICS
+                    SEND CONTROL FREEKB ERASE
+               END-EXEC
+               EXEC CICS
+                    RETURN
+               END-EXEC
+             WHEN OTHER
+                MOVE LOW-VALUES TO MAPPGMO
+                MOVE 'INVALID OPTION' TO MSGO
+                PERFORM SEND-ERROR-MSG THRU SEND-ERROR-EXIT
+             END-EVALUATE.
+       KEY-VALID-EXIT.
+             EXIT.
+       RECEIVE-PARA.
+             EXEC CICS
+             RECEIVE MAP('MAPPGM') MAPSET('CBSMAP')
+             INTO (MAPPGMI)
+             END-EXEC.
+       RECEIVE-PARA-EXIT.
+             EXIT.
+       SEND-ERROR-MSG.
+             PERFORM DATE-TIME THRU DATE-TIME-EXIT
+             MOVE WS-DATE TO CDATEO
+             MOVE WS-TIME TO CTIMEO
+             PERFORM SEND-MAP THRU SEND-MAP-EXIT
+             PERFORM RETURN-CICS THRU RETURN-CICS-EXIT.
+       SEND-ERROR-EXIT.
+            EXIT.
+       VALIDATION-PARA.
+	            PERFORM ACCT-NUMER.
+	      VALIDATION-EXIT.
+	           EXIT.
+	      ACCT-NUMER.
+	           IF ACCTI EQUAL TO LOW-VALUES OR
+			            ACCTI EQUAL TO SPACES
+            MOVE LOW-VALUES TO MAPPGMO
+            MOVE 'ACCOUNT SHOULD NOT BE BLANK' TO MSGO
+            PERFORM SEND-ERROR-MSG THRU SEND-ERROR-EXIT
+            END-IF.
+            IF ACCTI IS ALPHABETIC
+             MOVE LOW-VALUES TO MAPPGMO
+             MOVE 'ACCOUNT SHOULD NOT BE ALPHABETIC' TO MSGO
+             PERFORM SEND-ERROR-MSG THRU SEND-ERROR-EXIT
+            END-IF.
+            EXIT.
+       PROCESS-PARA.
+	            MOVE ACCTI TO WS-ACCOUNTID.
+             MOVE LOW-VALUES TO IDI
+             DISPLAY "ACCT NO. FROM INPUT" ACCOUNTID
+             EXEC SQL
+		              SELECT * INTO :DCLCBS-ACCT-INFO
+		              FROM CBS_ACCT_INFO
+		              WHERE ACCOUNTID=:ACCOUNTID
+		           END-EXEC
+		           MOVE LOW-VALUES TO WS-MESSAGE
+             MOVE NAME TO WS-NAME
+           STRING WS-NAME DELIMITED BY SPACE
+                  ' ' DELIMITED BY SIZE
+                  WS-PRINT DELIMITED BY SIZE
+            INTO WS-MESSAGE
+           MOVE LOW-VALUES TO WS-MESSAGE1
+           MOVE NAME TO WS-NAME1
+           STRING WS-NAME1 DELIMITED BY SPACE
+                  ' ' DELIMITED BY SIZE
+                  WS-PRINT1 DELIMITED BY SIZE
+            INTO WS-MESSAGE1
+           DISPLAY "MESS" WS-MESSAGE
+           DISPLAY "NAME" WS-NAME
+           DISPLAY "SQLCODE:" SQLCODE
+           EVALUATE SQLCODE
+            WHEN 0
+             DISPLAY ACCOUNTID
+             DISPLAY 'ACCOUNT IS AVAILABLE'
+             MOVE "SUCCESS" TO MSGO
+             MOVE NAME TO NAMEO
+             MOVE H1-ADDRESS     TO ADDRO
+             MOVE CITY           TO CITYO
+             MOVE COUNTRY        TO CNTRO
+             MOVE ZIPCODE        TO IDO
+             DISPLAY 'MESSAGES:'
+            WHEN 100
+             MOVE "ACCOUNT DOES NOT EXITS" TO MSGO
+             DISPLAY "MESSAGES:" WS-MESSAGE
+      *      EXEC CICS RETURN END-EXEC
+            WHEN OTHER
+             DISPLAY "SQLCODE1:" SQLCODE
+             MOVE "SQL ERROR" TO MSGO
+             DISPLAY "MESSAGES:" MSGO
+      *      EXEC CICS RETURN END-EXEC
+           END-EVALUATE.
+        PROCESS-PARA-EXIT.
+           EXIT.
+

@@ -1,0 +1,63 @@
+//BMSJCL    JOB (72,FB3),'        ',
+//            CLASS=A,MSGCLASS=H,NOTIFY=&SYSUID
+//ASMMAPS PROC INDEX='DFH550.CICS',
+//             MAPLIB='TCSUSR1.CICS.LOADLIB',
+//             DSCTLIB='IBMUSER.BMS.DSECT.TCS',
+//             SRCLIB='CBS.ZCON.TCS.SRC',
+//             MAPNAME='CBSMAP',
+//             ASMBLR=ASMA90,               "ASSEMBLER PROGRAM NAME"
+//*            REG=8192K,                   "REGION FOR ASSEMBLY"
+//             OUTC=*,                      "PRINT SYSOUT CLASS"
+//             WORK=SYSDA                  "WORK FILE UNIT"
+//COPY     EXEC PGM=IEBGENER
+//SYSPRINT DD SYSOUT=&OUTC
+//SYSUT2   DD DSN=&&TEMPM,UNIT=&WORK,DISP=(,PASS),
+//            DCB=(RECFM=FB,LRECL=80,BLKSIZE=400),
+//            SPACE=(400,(50,50))
+//SYSIN   DD DUMMY
+//SYSUT1  DD DSN=&SRCLIB(&MAPNAME),DISP=SHR
+//*-------------------------------------------------------------------*
+//*               ASSEMBLE MAP                                        *
+//*-------------------------------------------------------------------*
+//ASMMAP   EXEC PGM=&ASMBLR,REGION=0M,COND=(4,LT),
+//    PARM='SYSPARM(MAP),DECK,NOLOAD'
+//SYSPRINT DD SYSOUT=&OUTC
+//SYSLIB   DD DSN=&INDEX..SDFHMAC,DISP=SHR
+//         DD DSN=SYS1.MACLIB,DISP=SHR
+//         DD DSN=CEE.SCEEMAC,DISP=SHR
+//SYSUT1   DD UNIT=&WORK,SPACE=(TRK,(15,15))
+//SYSUT2   DD UNIT=&WORK,SPACE=(TRK,(15,15))
+//SYSUT3   DD UNIT=&WORK,SPACE=(TRK,(15,15))
+//SYSPUNCH DD DSN=&&MAP,DISP=(,PASS),UNIT=&WORK,
+//            DCB=(RECFM=FB,LRECL=80,BLKSIZE=400),
+//            SPACE=(400,(50,50))
+//SYSIN    DD DSN=&&TEMPM,DISP=(OLD,PASS)
+//SYSLIN   DD DUMMY
+//*-------------------------------------------------------------------*
+//*                 LINK-EDIT STEP                                    *
+//*-------------------------------------------------------------------*
+//LINKMAP  EXEC PGM=IEWL,PARM='LIST,LET,XREF',COND=(4,LT,ASMMAP)
+//SYSPRINT DD SYSOUT=&OUTC
+//SYSLMOD  DD DSN=&MAPLIB(&MAPNAME),DISP=SHR
+//SYSUT1   DD UNIT=&WORK,SPACE=(1024,(20,20))
+//SYSLIN   DD DSN=&&MAP,DISP=(OLD,DELETE)
+//*
+//*------------------------------------------------------------------*
+//*              DSECT GENERATION                                    *
+//*------------------------------------------------------------------*
+//ASMDSECT EXEC PGM=&ASMBLR,REGION=0M,COND=(4,LT),
+//  PARM='SYSPARM(DSECT),DECK,NOLOAD'
+//SYSPRINT DD SYSOUT=&OUTC
+//SYSLIB   DD DSN=&INDEX..SDFHMAC,DISP=SHR
+//         DD DSN=SYS1.MACLIB,DISP=SHR
+//SYSUT1   DD UNIT=&WORK,SPACE=(CYL,(5,5))
+//SYSUT2   DD UNIT=&WORK,SPACE=(CYL,(5,5))
+//SYSUT3   DD UNIT=&WORK,SPACE=(CYL,(5,5))
+//SYSPUNCH DD DSN=&DSCTLIB(&MAPNAME),DISP=OLD
+//SYSIN    DD DSN=&&TEMPM,DISP=(OLD,DELETE)
+//SYSLIN   DD DUMMY
+//  PEND
+//*
+//****************************************************************
+//BMSMAP  EXEC ASMMAPS
+
